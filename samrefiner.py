@@ -12,7 +12,7 @@ n_steps = 100
 n_epochs = 10
 n_feats = 16
 seed = 0
-outfile = 'feats.npy'
+outfile = "feats.npy"
 
 if __name__ == "__main__":
     torch.manual_seed(seed)
@@ -79,8 +79,11 @@ if __name__ == "__main__":
             )  # B, 1, H, W
             distance_maps = distance_maps**2 / 2  # assume sigma=1
             probs = torch.exp(-distance_maps)
-            mse_loss = torch.nn.functional.mse_loss(probs, masks[:, :1], reduce="mean")
-            grad_reg_loss = torch.norm(feats[:, 1:] - feats[:, :-1], dim=0).mean() + torch.norm(feats[:, :, 1:] - feats[:,:, :-1], dim=0).mean()
+            mse_loss = torch.nn.functional.mse_loss(probs, masks[:, 2:3], reduce="mean")
+            grad_reg_loss = (
+                torch.norm(feats[:, 1:] - feats[:, :-1], dim=0).mean()
+                + torch.norm(feats[:, :, 1:] - feats[:, :, :-1], dim=0).mean()
+            )
             loss = mse_loss + 0.1 * grad_reg_loss
             optim.zero_grad()
             loss.backward()
@@ -88,6 +91,6 @@ if __name__ == "__main__":
             scheduler.step()
             print(f"epoch {epoch} step {step}, loss: {loss.item()}", end="\r")
 
-    print('saving...')
+    print("saving...")
     np.save(outfile, feats.detach().cpu().numpy())
     print("done!")
