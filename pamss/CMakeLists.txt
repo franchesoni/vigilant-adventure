@@ -57,24 +57,21 @@ endif ()
 # Enable C++11
 if (CMAKE_VERSION VERSION_LESS "3.1")
    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11") # -fsanitize=address)
-#   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++98")
 else ()
    set (CMAKE_CXX_STANDARD 11)
 endif ()
 SET( EXTRA_COMPILER_FLAGS "${EXTRA_COMPILER_FLAGS} ") #  -fsanitize=address -Wall -Wextra -pedantic" )
 
-
-#
+# set the cnpy library path
+CNPY_PATH=${PROJECT_SOURCE_DIR}/cnpy
+include_directories(${CNPY_PATH}/include)
+link_directories(${CNPY_PATH}/build)
 
 ADD_EXECUTABLE( pamss main.cpp img.cpp img.hpp imgio.cpp rag.cpp rag.hpp model.hpp mergetreelog.cpp mergetreelog.h)
-#SET_PROPERTY(TARGET pamss PROPERTY CXX_STANDARD 98)
-#SET_PROPERTY(TARGET pamss PROPERTY C_STANDARD 99)
-TARGET_LINK_LIBRARIES( pamss ${LIBS}  )
+TARGET_LINK_LIBRARIES( pamss ${LIBS} cnpy z )
 SET_TARGET_PROPERTIES( pamss PROPERTIES COMPILE_FLAGS "${EXTRA_COMPILER_FLAGS} ${OpenMP_C_FLAGS}" )
 
 ADD_EXECUTABLE( mstree treecut.cpp img.cpp img.hpp imgio.cpp rag.cpp rag.hpp model.hpp mergetreelog.cpp mergetreelog.h)
-#SET_PROPERTY(TARGET mstree PROPERTY CXX_STANDARD 98)
-#SET_PROPERTY(TARGET mstree PROPERTY C_STANDARD 99)
 TARGET_LINK_LIBRARIES( mstree ${LIBS} )
 SET_TARGET_PROPERTIES( mstree PROPERTIES COMPILE_FLAGS "${EXTRA_COMPILER_FLAGS} ${OpenMP_C_FLAGS}" )
 
