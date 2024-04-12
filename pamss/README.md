@@ -19,7 +19,6 @@ mkdir build
 cd build
 cmake ..
 make
-make install
 ```
 ## 3, check install
 ```
