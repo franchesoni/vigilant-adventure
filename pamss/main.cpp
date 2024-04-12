@@ -423,7 +423,8 @@ int main(int argc, char** argv){
     char *out_file = argv[2];
     char *out_labels_file = argc > 3 ? argv[3] : NULL;
 
-    Img in = iio_read_vector_split(in_file);
+    // if in file ends with .npy use cnpy to open
+    Img in = strstr(in_file, ".npy") != NULL ? read_npy(in_file) : iio_read_vector_split(in_file);
     int nx = in.nx;
     int ny = in.ny;
     int nch = in.nch;
