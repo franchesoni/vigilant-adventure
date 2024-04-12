@@ -63,9 +63,9 @@ endif ()
 SET( EXTRA_COMPILER_FLAGS "${EXTRA_COMPILER_FLAGS} ") #  -fsanitize=address -Wall -Wextra -pedantic" )
 
 # set the cnpy library path
-CNPY_PATH=${PROJECT_SOURCE_DIR}/cnpy
-include_directories(${CNPY_PATH}/include)
-link_directories(${CNPY_PATH}/build)
+set(CNPY_PATH, "${PROJECT_SOURCE_DIR}/cnpy")
+include_directories("${CNPY_PATH}/include")
+link_directories("${CNPY_PATH}/build")
 
 ADD_EXECUTABLE( pamss main.cpp img.cpp img.hpp imgio.cpp rag.cpp rag.hpp model.hpp mergetreelog.cpp mergetreelog.h)
 TARGET_LINK_LIBRARIES( pamss ${LIBS} cnpy z )
