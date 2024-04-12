@@ -30,13 +30,10 @@ def evaluate(ds, mask_generator, limit=1e9):
             iou_with_bboxes = []
             for mask in masks:
                 bbox_tl_col, bbox_tl_row, bbox_w, bbox_h = map(int, mask["bbox"])
-                try:
-                    gt_at_bbox = gt[
-                        bbox_tl_row : bbox_tl_row + bbox_h,
-                        bbox_tl_col : bbox_tl_col + bbox_w,
-                    ]
-                except TypeError:
-                    breakpoint()
+                gt_at_bbox = gt[
+                    bbox_tl_row : bbox_tl_row + bbox_h,
+                    bbox_tl_col : bbox_tl_col + bbox_w,
+                ]
                 iou_with_bbox = gt_at_bbox.sum() / (  # intersection
                     gt.sum() - gt_at_bbox.sum() + bbox_h * bbox_w
                 )  # union (pixels of gt outside + pixels of bounding box)
