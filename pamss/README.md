@@ -8,7 +8,7 @@ cd /absolute/path/to/repo/pamss
 cd cnpy
 mkdir build
 cd build
-cmake -DCMAKE_INSTALL_PREFIX=/absolute/path/to/repo/pamss/cnpy/build
+cmake -DCMAKE_INSTALL_PREFIX=/absolute/path/to/repo/pamss/cnpy/build ..
 make
 make install
 ```
