@@ -454,11 +454,11 @@ int main(int argc, char** argv){
     }
 
 
-    // Write outputs
-    double err2,err2real;
-    Img out = apply_model_to_segmentation(segment, in, order, &err2, &err2real);
-    iio_write_vector_split(out_file, out);
-    printf("err2: %lf err2real %lf\n", err2, err2real);
+    // // Write outputs
+    // double err2,err2real;
+    // Img out = apply_model_to_segmentation(segment, in, order, &err2, &err2real);
+    // iio_write_vector_split(out_file, out);
+    // printf("err2: %lf err2real %lf\n", err2, err2real);
 
     if(out_labels_file!=NULL) {
     //    Img tmp = relabel_segments_consecutive(segment);
