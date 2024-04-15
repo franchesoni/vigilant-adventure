@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 import numpy as np
 import tqdm
+from PIL import Image
 
 from computer_vision_datasets import download, get_released_datasets, SegDataset
 
@@ -19,12 +20,13 @@ def compute_iou(mask1, mask2):
 
 
 def evaluate(ds, mask_generator, limit=1e9):
-    iou_thresholds = np.linspace(0.5, 0.95, 10)
+    iou_thresholds = np.linspace(0.05, 0.95, 20)
     res_per_class_per_mask = {}
     for sample_ind, sample in enumerate(ds):
         if sample_ind == limit:
             break
         img, gts, class_names = sample
+        Image.fromarray(img).save("input_img.png")
         masks = mask_generator.generate(img)
         for gtind, gt in enumerate(gts):
             iou_with_bboxes = []
@@ -74,17 +76,31 @@ def evaluate(ds, mask_generator, limit=1e9):
 
 
 if __name__ == "__main__":
+    LIMIT = 10
     download(dataset_name, datapath)
     ds = SegDataset(datapath / dataset_name.lower(), "train")
+    # visualize dataset
+    Path('tmp').mkdir(exist_ok=True)
+    for sample_ind, sample in enumerate(ds):
+        if sample_ind == LIMIT:
+            break
+        Path(f'tmp/{sample_ind}').mkdir(exist_ok=True)
+        img = sample[0]
+        masks = sample[1]
+        for mask_ind, mask in enumerate(masks):
+            Image.fromarray(mask*255).save(f'tmp/{sample_ind}/{mask_ind}.png')
+        Image.fromarray(img).save(f'tmp/{sample_ind}/img.png')
 
-    from mask_generators import SAMPaper
+    from mask_generators import SAMPaper, MSSam
     from segment_anything import sam_model_registry
 
     sam_checkpoint = "sam_vit_b_01ec64.pth"
     model_type = "vit_b"
-    device = "cuda:1"
+    device = "cuda:2"
     sam = sam_model_registry[model_type](sam_checkpoint)
     sam.to(device=device)
-    mask_generator = SAMPaper(sam)
-
-    evaluate(ds, mask_generator, limit=10)
+    # mask_generator = SAMPaper(sam)
+    #  10/10, mIoU: 0.307, AR: 0.191 @1000
+    mask_generator = MSSam(sam, box_nms_thresh=0.97, use_cpu=True, logits=True)
+    # 10/10, mIoU: 0.630, AR: 0.510 @993
+    evaluate(ds, mask_generator, limit=LIMIT)
