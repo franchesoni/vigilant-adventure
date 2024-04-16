@@ -51,14 +51,28 @@ def evaluate(ds, mask_generator, dstdir, limit=1e9):
                 iou = compute_iou(mask.cpu(), gt)
                 if best_iou is None or iou > best_iou:
                     best_idx, best_iou = idx, iou
-            best_mask = (masks[best_idx]['segmentation'].cpu().numpy()*255).astype(np.uint8)
-            Image.fromarray(gt*255).save(dstdir / str(sample_ind) / f"{gtind}_gt.png")
-            Image.fromarray(best_mask).save(dstdir / str(sample_ind) / f"{gtind}_pred.png")
-            Image.fromarray((img*0.5 + best_mask[...,None]*np.ones(3).reshape(1,1,3)*0.5).astype(np.uint8)).save(dstdir / str(sample_ind) / f"{gtind}_prednimg.png")
-            tp = (gt*best_mask)[...,None]*np.array([1, 1, 1]).reshape(1,1,3)
-            fp = (best_mask*(1-gt))[...,None]*np.array([1, 0, 0]).reshape(1,1,3)
-            fn = (gt*(255-best_mask))[...,None]*np.array([0, 0, 1]).reshape(1,1,3)
-            Image.fromarray(((tp + fp + fn)).astype(np.uint8)).save(dstdir / str(sample_ind) / f"{gtind}_error.png")
+            best_mask = (masks[best_idx]["segmentation"].cpu().numpy() * 255).astype(
+                np.uint8
+            )
+            Image.fromarray(gt * 255).save(dstdir / str(sample_ind) / f"{gtind}_gt.png")
+            Image.fromarray(best_mask).save(
+                dstdir / str(sample_ind) / f"{gtind}_pred.png"
+            )
+            Image.fromarray(
+                (
+                    img * 0.5 + best_mask[..., None] * np.ones(3).reshape(1, 1, 3) * 0.5
+                ).astype(np.uint8)
+            ).save(dstdir / str(sample_ind) / f"{gtind}_prednimg.png")
+            tp = (gt * best_mask)[..., None] * np.array([1, 1, 1]).reshape(1, 1, 3)
+            fp = (best_mask * (1 - gt))[..., None] * np.array([1, 0, 0]).reshape(
+                1, 1, 3
+            )
+            fn = (gt * (255 - best_mask))[..., None] * np.array([0, 0, 1]).reshape(
+                1, 1, 3
+            )
+            Image.fromarray(((tp + fp + fn)).astype(np.uint8)).save(
+                dstdir / str(sample_ind) / f"{gtind}_error.png"
+            )
             class_name = class_names[gtind]
             if class_name in res_per_class_per_mask:
                 res_per_class_per_mask[class_name].append(best_iou)
@@ -87,20 +101,9 @@ def evaluate(ds, mask_generator, dstdir, limit=1e9):
 
 if __name__ == "__main__":
     LIMIT = 10
-    METHOD = ["SAM", "MSSAM"][0]
+    METHOD = ["SAM", "MSSAM"][1]
     download(dataset_name, datapath)
     ds = SegDataset(datapath / dataset_name.lower(), "train")
-    # visualize dataset
-    Path('tmp').mkdir(exist_ok=True)
-    for sample_ind, sample in enumerate(ds):
-        if sample_ind == LIMIT:
-            break
-        Path(f'tmp/{sample_ind}').mkdir(exist_ok=True)
-        img = sample[0]
-        masks = sample[1]
-        for mask_ind, mask in enumerate(masks):
-            Image.fromarray(mask*255).save(f'tmp/{sample_ind}/{mask_ind}.png')
-        Image.fromarray(img).save(f'tmp/{sample_ind}/img.png')
 
     from mask_generators import SAMPaper, MSSam
     from segment_anything import sam_model_registry
@@ -116,4 +119,4 @@ if __name__ == "__main__":
     elif METHOD == "MSSAM":
         mask_generator = MSSam(sam, box_nms_thresh=0.97, use_cpu=True, logits=True)
         # 10/10, mIoU: 0.630, AR: 0.510 @993
-    evaluate(ds, mask_generator, dstdir=f'tmp/{METHOD}', limit=LIMIT)
+    evaluate(ds, mask_generator, dstdir=f"tmp/{METHOD}", limit=LIMIT)
