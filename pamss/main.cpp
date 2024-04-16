@@ -3,6 +3,9 @@
 //
 #include <vector>
 #include <list>
+#include <sstream>
+#include <algorithm>
+#include <string>
 #include "img.hpp"
 #include "imgio.hpp"
 
@@ -326,7 +329,7 @@ vector<Merge_log> mumford_shah_segmentation(Img &in, int order, int target_regio
         _debug_merges ++;
 
         if(debug && (_debug_merges % 1000) == 0 )
-            printf("last lambda + %f   merges: %d heap updates:%d\n", H.array[0].lambda, _debug_merges,
+            printf("last lambda + %f   merges: %d heap updates:%d\r", H.array[0].lambda, _debug_merges,
                        _debug_heap_update_priority);
 
     }
@@ -399,12 +402,44 @@ static char *pick_option(int *c, char ***v, char *o, char *d)
     return d;
 }
 
+// Function to split string based on a delimiter and convert to integer
+std::vector<int> parse_int_list(char* str) {
+    std::vector<int> result;
+    std::string token;
+    std::istringstream tokenStream(str);
+
+    while (getline(tokenStream, token, ',')) {
+        result.push_back(atoi(token.c_str()));
+    }
+    return result;
+}
+
+std::string get_extension(const std::string& filename) {
+    size_t dot_pos = filename.rfind('.');
+    if (dot_pos != std::string::npos) {
+        return filename.substr(dot_pos); // includes the dot
+    }
+    return ""; // no extension found
+}
+
+std::string get_stem(const std::string& filename) {
+    size_t dot_pos = filename.rfind('.');
+    if (dot_pos != std::string::npos) {
+        return filename.substr(0, dot_pos);
+    }
+    return filename; // no extension, return whole filename
+}
 
 
 // main program
 int main(int argc, char** argv){
 
-    int nregions = atoi(pick_option(&argc, &argv, (char*) "n", (char*) "2"));
+    // we now accept a list of nregions in format "n1,n2,n3"
+    char* nregions_input = pick_option(&argc, &argv, (char*) "n", (char*) "2");
+    std::vector<int> nregions_list = parse_int_list(nregions_input);
+    // Sort the list
+    std::sort(nregions_list.begin(), nregions_list.end());
+
     int order    = atoi(pick_option(&argc, &argv, (char*) "o", (char*) "1"));
     float lambda = atof(pick_option(&argc, &argv, (char*) "l", (char*) "inf"));
     float maxrmse = atof(pick_option(&argc, &argv, (char*) "e", (char*) "inf"));
@@ -418,6 +453,7 @@ int main(int argc, char** argv){
                 " [-e maxrmse(inf)][-i initial_segm] [-t mergelogfile] [-g grad_weight(0)] in out [out_labels]\n", argv[0]);
         return 1;
     }
+    printf("params: %d %d %f %f %s %s %f %s %s\n", order, nregions_list[0], lambda, maxrmse, initial_segmentation_file, mergelogfile, gradient_weight, argv[1], argv[2]);
 
     char *in_file = argv[1];
     char *out_file = argv[2];
@@ -445,12 +481,14 @@ int main(int argc, char** argv){
     // Call the main function
     vector<Merge_log> t;
     Img segment;
-    if(strcmp(mergelogfile,"") != 0) {
-        t = mumford_shah_segmentation(in, order, 1, INFINITY, gradient_weight);
-        segment = get_segmentation_from_merge_tree_log(t, nx, ny, nregions, lambda);
-    } else {
-        t = mumford_shah_segmentation(in, order, nregions, lambda, gradient_weight, maxrmse);
-        segment = get_segmentation_from_merge_tree_log(t, nx, ny, 1, lambda);
+    // we run always this, although it's inefficient (we could stop earlier)
+    printf("running mumford shah segmentation...\n");
+    t = mumford_shah_segmentation(in, order, 1, INFINITY, gradient_weight);
+    vector<Img> segmentations; 
+    for (int region : nregions_list) {
+        printf("getting segmentation for number of regions:%d\n", region);
+        segment = get_segmentation_from_merge_tree_log(t, nx, ny, region, lambda);
+        segmentations.push_back(segment);
     }
 
 
@@ -461,9 +499,17 @@ int main(int argc, char** argv){
     // printf("err2: %lf err2real %lf\n", err2, err2real);
 
     if(out_labels_file!=NULL) {
-    //    Img tmp = relabel_segments_consecutive(segment);
-        Img tmp =  draw_labels_colors(segment);
-        iio_write_vector_split(out_labels_file, tmp);
+        std::string stem = get_stem(out_labels_file);
+        std::string ext = get_extension(out_labels_file);
+        for (int i = 0; i < segmentations.size(); i++) {
+            // output of your/file.ext is your/file_.stem + "_NREGIONS" + .ext
+            std::string out_labels_file_i = stem + "_" + std::to_string(nregions_list[i]) + ext;
+            printf("saving to %s\n", out_labels_file_i.c_str());
+            std::vector<char> writable(out_labels_file_i.begin(), out_labels_file_i.end());
+            writable.push_back('\0'); // ensure null termination
+            Img tmp = draw_labels_colors(segmentations[i]);
+            iio_write_vector_split(&writable[0], tmp);
+        }
     }
 
     if(strcmp(mergelogfile,"") != 0)
