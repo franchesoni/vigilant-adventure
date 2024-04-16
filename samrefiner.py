@@ -1,18 +1,21 @@
+from pathlib import Path
 from PIL import Image
 import numpy as np
 import torch
+import matplotlib.pyplot as plt
 
-from segment_anything import sam_model_registry, SamAutomaticMaskGenerator, SamPredictor
+from segment_anything import sam_model_registry, SamPredictor
 
 sam_checkpoint = "sam_vit_b_01ec64.pth"
 model_type = "vit_b"
-device = "cuda"
+device = "cuda:1"
 n_points = 200
 n_steps = 100
 n_epochs = 10
 n_feats = 16
+scale = 'medium'
 seed = 0
-outfile = "feats.npy"
+imgpath = Path("snavona.jpg")
 
 if __name__ == "__main__":
     torch.manual_seed(seed)
@@ -25,7 +28,8 @@ if __name__ == "__main__":
     sam_predictor = SamPredictor(sam)
 
     print("processing img...")
-    image = np.array(Image.open("cat.png").convert("RGB"))
+    # image = np.array(Image.open("cat.png").convert("RGB"))
+    image = np.array(Image.open(imgpath).convert("RGB"))
     H, W = image.shape[:2]
     sam_predictor.set_image(image)
 
@@ -79,7 +83,8 @@ if __name__ == "__main__":
             )  # B, 1, H, W
             distance_maps = distance_maps**2 / 2  # assume sigma=1
             probs = torch.exp(-distance_maps)
-            mse_loss = torch.nn.functional.mse_loss(probs, masks[:, 2:3], reduce="mean")
+            scale_channel = {'large':0, 'medium':1, 'small':2}[scale]
+            mse_loss = torch.nn.functional.mse_loss(probs, masks[:, scale_channel:scale_channel+1], reduce="mean")
             grad_reg_loss = (
                 torch.norm(feats[:, 1:] - feats[:, :-1], dim=0).mean()
                 + torch.norm(feats[:, :, 1:] - feats[:, :, :-1], dim=0).mean()
@@ -92,5 +97,21 @@ if __name__ == "__main__":
             print(f"epoch {epoch} step {step}, loss: {loss.item()}", end="\r")
 
     print("saving...")
-    np.save(outfile, feats.detach().cpu().numpy())
+    feats = feats.detach().cpu().numpy()
+    np.save(imgpath.parent / (imgpath.stem + "_feats.npy"), feats)
+
+    F, H, W = feats.shape
+    print("saving pca...")
+    from sklearn.decomposition import PCA
+
+    pca = PCA(n_components=3)
+    rgbfeats = pca.fit_transform(feats.reshape(F, H * W).T)
+    rgbfeats = rgbfeats.reshape(H, W, 3)
+
+    def pct_norm(x, pct=1):
+        toppct, botpct = np.percentile(x, 100 - pct), np.percentile(x, pct)
+        return (np.clip(x, botpct, toppct) - botpct) / (toppct - botpct)
+
+    plt.imsave(imgpath.parent / (imgpath.stem + "_feats_pca.png"), pct_norm(rgbfeats))
+
     print("done!")
