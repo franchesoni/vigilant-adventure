@@ -19,14 +19,16 @@ def compute_iou(mask1, mask2):
     return intersection / union
 
 
-def evaluate(ds, mask_generator, limit=1e9):
+def evaluate(ds, mask_generator, dstdir, limit=1e9):
     iou_thresholds = np.linspace(0.05, 0.95, 20)
     res_per_class_per_mask = {}
+    dstdir = Path(dstdir)
     for sample_ind, sample in enumerate(ds):
+        (dstdir / str(sample_ind)).mkdir(exist_ok=True, parents=True)
         if sample_ind == limit:
             break
         img, gts, class_names = sample
-        Image.fromarray(img).save("input_img.png")
+        Image.fromarray(img).save(dstdir / str(sample_ind) / "input_img.png")
         masks = mask_generator.generate(img)
         for gtind, gt in enumerate(gts):
             iou_with_bboxes = []
@@ -49,6 +51,14 @@ def evaluate(ds, mask_generator, limit=1e9):
                 iou = compute_iou(mask.cpu(), gt)
                 if best_iou is None or iou > best_iou:
                     best_idx, best_iou = idx, iou
+            best_mask = (masks[best_idx]['segmentation'].cpu().numpy()*255).astype(np.uint8)
+            Image.fromarray(gt*255).save(dstdir / str(sample_ind) / f"{gtind}_gt.png")
+            Image.fromarray(best_mask).save(dstdir / str(sample_ind) / f"{gtind}_pred.png")
+            Image.fromarray((img*0.5 + best_mask[...,None]*np.ones(3).reshape(1,1,3)*0.5).astype(np.uint8)).save(dstdir / str(sample_ind) / f"{gtind}_prednimg.png")
+            tp = (gt*best_mask)[...,None]*np.array([1, 1, 1]).reshape(1,1,3)
+            fp = (best_mask*(1-gt))[...,None]*np.array([1, 0, 0]).reshape(1,1,3)
+            fn = (gt*(255-best_mask))[...,None]*np.array([0, 0, 1]).reshape(1,1,3)
+            Image.fromarray(((tp + fp + fn)).astype(np.uint8)).save(dstdir / str(sample_ind) / f"{gtind}_error.png")
             class_name = class_names[gtind]
             if class_name in res_per_class_per_mask:
                 res_per_class_per_mask[class_name].append(best_iou)
@@ -77,6 +87,7 @@ def evaluate(ds, mask_generator, limit=1e9):
 
 if __name__ == "__main__":
     LIMIT = 10
+    METHOD = ["SAM", "MSSAM"][0]
     download(dataset_name, datapath)
     ds = SegDataset(datapath / dataset_name.lower(), "train")
     # visualize dataset
@@ -99,8 +110,10 @@ if __name__ == "__main__":
     device = "cuda:2"
     sam = sam_model_registry[model_type](sam_checkpoint)
     sam.to(device=device)
-    # mask_generator = SAMPaper(sam)
-    #  10/10, mIoU: 0.307, AR: 0.191 @1000
-    mask_generator = MSSam(sam, box_nms_thresh=0.97, use_cpu=True, logits=True)
-    # 10/10, mIoU: 0.630, AR: 0.510 @993
-    evaluate(ds, mask_generator, limit=LIMIT)
+    if METHOD == "SAM":
+        mask_generator = SAMPaper(sam)
+        #  10/10, mIoU: 0.307, AR: 0.191 @1000
+    elif METHOD == "MSSAM":
+        mask_generator = MSSam(sam, box_nms_thresh=0.97, use_cpu=True, logits=True)
+        # 10/10, mIoU: 0.630, AR: 0.510 @993
+    evaluate(ds, mask_generator, dstdir=f'tmp/{METHOD}', limit=LIMIT)
