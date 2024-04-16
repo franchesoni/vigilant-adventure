@@ -31,22 +31,8 @@ def evaluate(ds, mask_generator, dstdir, limit=1e9):
         Image.fromarray(img).save(dstdir / str(sample_ind) / "input_img.png")
         masks = mask_generator.generate(img)
         for gtind, gt in enumerate(gts):
-            iou_with_bboxes = []
-            for mask in masks:
-                bbox_tl_col, bbox_tl_row, bbox_w, bbox_h = map(int, mask["bbox"])
-                gt_at_bbox = gt[
-                    bbox_tl_row : bbox_tl_row + bbox_h,
-                    bbox_tl_col : bbox_tl_col + bbox_w,
-                ]
-                iou_with_bbox = gt_at_bbox.sum() / (  # intersection
-                    gt.sum() - gt_at_bbox.sum() + bbox_h * bbox_w
-                )  # union (pixels of gt outside + pixels of bounding box)
-                iou_with_bboxes.append(iou_with_bbox)
-            # now arg sort them and take the 3 best
-            iou_with_bboxes = np.array(iou_with_bboxes)
-            best_10 = iou_with_bboxes.argsort()[-10:]
             best_idx, best_iou = None, None
-            for idx in best_10:
+            for idx in tqdm.tqdm(range(len(masks))):
                 mask = masks[idx]["segmentation"]
                 iou = compute_iou(mask.cpu(), gt)
                 if best_iou is None or iou > best_iou:
@@ -58,11 +44,7 @@ def evaluate(ds, mask_generator, dstdir, limit=1e9):
             Image.fromarray(best_mask).save(
                 dstdir / str(sample_ind) / f"{gtind}_pred.png"
             )
-            Image.fromarray(
-                (
-                    img * 0.5 + best_mask[..., None] * np.ones(3).reshape(1, 1, 3) * 0.5
-                ).astype(np.uint8)
-            ).save(dstdir / str(sample_ind) / f"{gtind}_prednimg.png")
+
             tp = (gt * best_mask)[..., None] * np.array([1, 1, 1]).reshape(1, 1, 3)
             fp = (best_mask * (1 - gt))[..., None] * np.array([1, 0, 0]).reshape(
                 1, 1, 3
@@ -73,6 +55,11 @@ def evaluate(ds, mask_generator, dstdir, limit=1e9):
             Image.fromarray(((tp + fp + fn)).astype(np.uint8)).save(
                 dstdir / str(sample_ind) / f"{gtind}_error.png"
             )
+            Image.fromarray(
+                (
+                    img * 0.5 + (tp+fp+fn) * 0.5
+                ).astype(np.uint8)
+            ).save(dstdir / str(sample_ind) / f"{gtind}_prednimg.png")
             class_name = class_names[gtind]
             if class_name in res_per_class_per_mask:
                 res_per_class_per_mask[class_name].append(best_iou)
@@ -100,7 +87,7 @@ def evaluate(ds, mask_generator, dstdir, limit=1e9):
 
 
 if __name__ == "__main__":
-    LIMIT = 10
+    LIMIT = 12
     METHOD = ["SAM", "MSSAM"][1]
     download(dataset_name, datapath)
     ds = SegDataset(datapath / dataset_name.lower(), "train")
@@ -115,8 +102,15 @@ if __name__ == "__main__":
     sam.to(device=device)
     if METHOD == "SAM":
         mask_generator = SAMPaper(sam)
-        #  10/10, mIoU: 0.307, AR: 0.191 @1000
+        # 10/10, mIoU: 0.777, AR: 0.642 @1000
     elif METHOD == "MSSAM":
         mask_generator = MSSam(sam, box_nms_thresh=0.97, use_cpu=True, logits=True)
-        # 10/10, mIoU: 0.630, AR: 0.510 @993
+        # 10/10, mIoU: 0.635, AR: 0.512 @993
+        # 10/10, mIoU: 0.640, AR: 0.517 @993  (with bboxes)
     evaluate(ds, mask_generator, dstdir=f"tmp/{METHOD}", limit=LIMIT)
+
+
+
+# SAM  10/10, mIoU: 0.777, AR: 0.642 @1000
+# MSAM 10/10, mIoU: 0.635, AR: 0.512 @993
+# MSAM (-o 1) 12/12, mIoU: 0.520, AR: 0.408 @993
