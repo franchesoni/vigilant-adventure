@@ -166,13 +166,12 @@ class MSSam(SAMPaper):
             self.max_proposals // (2**i)
             for i in range(1, int(np.floor(np.log2(self.max_proposals))))
         ]
-        for n in n_masks:
-            call_command = (
-                f"./{self.pamss_path} -o {order} -n {n} tmp.npy tmp.png labels_{n}.png"
-            )
-            print(f"running: `{call_command}`")
-            os.system(call_command)
-            print(f"done with `{call_command}!")
+        call_command = (
+            f"./{self.pamss_path} -o {order} -n {','.join(list(map(str, n_masks)))} tmp.npy tmp.png labels.png"
+        )
+        print(f"running: `{call_command}`")
+        os.system(call_command)
+        print(f"done with `{call_command}!")
         masks = []
         for n in n_masks[::-1]:
             rgb_labels = cv2.imread(f"labels_{n}.png")
