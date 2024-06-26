@@ -450,7 +450,8 @@ int main(int argc, char** argv){
     if (argc < 3) {
         fprintf(stderr, "too few parameters\n"
                 "   %s [-o model_order(1)] [-l lambda(inf)] [-n regions(2)]"
-                " [-e maxrmse(inf)][-i initial_segm] [-t mergelogfile] [-g grad_weight(0)] in out [out_labels]\n", argv[0]);
+                " [-e maxrmse(inf)][-i initial_segm] [-t mergelogfile] [-g grad_weight(0)] in out [out_labels]\n
+                note that you can also pass -n 2,20,100", argv[0]);
         return 1;
     }
     printf("params: %d %d %f %f %s %s %f %s %s\n", order, nregions_list[0], lambda, maxrmse, initial_segmentation_file, mergelogfile, gradient_weight, argv[1], argv[2]);
