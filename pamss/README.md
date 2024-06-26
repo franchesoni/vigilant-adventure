@@ -13,6 +13,7 @@ make
 make install
 ```
 ## 2. install pamss
+(remember to install png, tiff, jpeg and eigen3 libraries, with `sudo apt install libtiff-dev libjpeg-dev libeigen3-dev libpng-dev)
 ```
 cd /absolute/path/to/repo/pamss
 mkdir build
